@@ -1,0 +1,49 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Zona {
+  Norte
+  Sur
+  Centro
+  Occidente
+  Chapinero
+}
+
+enum EstadoPedido {
+  pendiente
+  en_camino
+  entregado
+  cancelado
+}
+
+enum MetodoPago {
+  efectivo
+  tarjeta
+  app
+}
+
+model Pedido {
+  idPedido       String       @id @default(uuid()) @map("id_pedido")
+  cliente        String
+  zona           Zona
+  fechaCreacion  DateTime     @default(now()) @map("fecha_creacion")
+  fechaEntrega   DateTime?    @map("fecha_entrega")
+  estado         EstadoPedido @default(pendiente)
+  repartidor     String?
+  metodoPago     MetodoPago   @map("metodo_pago")
+  monto          Decimal      @db.Decimal(10, 2)
+
+  @@map("pedidos")
+}
