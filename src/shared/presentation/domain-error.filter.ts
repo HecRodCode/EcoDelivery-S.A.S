@@ -7,8 +7,10 @@ import {
 import { Response } from 'express';
 import {
   DomainError,
-  EntidadNoEncontradaError,
-  TransicionEstadoInvalidaError,
+  EmailAlreadyRegisteredError,
+  EntityNotFoundError,
+  InvalidCredentialsError,
+  InvalidStatusTransitionError,
 } from '../domain/domain.error';
 
 @Catch(DomainError)
@@ -24,11 +26,17 @@ export class DomainErrorFilter implements ExceptionFilter {
   }
 
   private resolveStatus(exception: DomainError): number {
-    if (exception instanceof EntidadNoEncontradaError) {
+    if (exception instanceof EntityNotFoundError) {
       return HttpStatus.NOT_FOUND;
     }
-    if (exception instanceof TransicionEstadoInvalidaError) {
+    if (exception instanceof InvalidStatusTransitionError) {
       return HttpStatus.CONFLICT;
+    }
+    if (exception instanceof EmailAlreadyRegisteredError) {
+      return HttpStatus.CONFLICT;
+    }
+    if (exception instanceof InvalidCredentialsError) {
+      return HttpStatus.UNAUTHORIZED;
     }
     return HttpStatus.BAD_REQUEST;
   }

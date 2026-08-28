@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
-import { APP_FILTER } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { PedidosModule } from './features/pedidos/pedidos.module';
+import { AuthModule } from './features/auth/auth.module';
+import { JwtAuthGuard } from './features/auth/presentation/guards/jwt-auth.guard';
+import { RolesGuard } from './features/auth/presentation/guards/roles.guard';
+import { OrdersModule } from './features/orders/orders.module';
 import { validateEnv } from './shared/config/env';
 import { PrismaModule } from './shared/infrastructure/prisma/prisma.module';
 import { DomainErrorFilter } from './shared/presentation/domain-error.filter';
@@ -15,12 +18,15 @@ import { DomainErrorFilter } from './shared/presentation/domain-error.filter';
       validate: validateEnv,
     }),
     PrismaModule,
-    PedidosModule,
+    AuthModule,
+    OrdersModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
     { provide: APP_FILTER, useClass: DomainErrorFilter },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AppModule {}

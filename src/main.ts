@@ -18,6 +18,7 @@ async function bootstrap() {
     .setTitle('EcoDelivery API')
     .setDescription('API de gestión de domicilios ecológicos')
     .setVersion('0.0.1')
+    .addBearerAuth()
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, swaggerDocument);

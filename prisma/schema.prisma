@@ -13,37 +13,58 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Zona {
-  Norte
-  Sur
-  Centro
-  Occidente
-  Chapinero
+enum Zone {
+  norte     @map("Norte")
+  sur       @map("Sur")
+  centro    @map("Centro")
+  occidente @map("Occidente")
+  chapinero @map("Chapinero")
+
+  @@map("Zona")
 }
 
-enum EstadoPedido {
+enum OrderStatus {
   pendiente
   en_camino
   entregado
   cancelado
+
+  @@map("EstadoPedido")
 }
 
-enum MetodoPago {
+enum PaymentMethod {
   efectivo
   tarjeta
   app
+
+  @@map("MetodoPago")
 }
 
-model Pedido {
-  idPedido       String       @id @default(uuid()) @map("id_pedido")
-  cliente        String
-  zona           Zona
-  fechaCreacion  DateTime     @default(now()) @map("fecha_creacion")
-  fechaEntrega   DateTime?    @map("fecha_entrega")
-  estado         EstadoPedido @default(pendiente)
-  repartidor     String?
-  metodoPago     MetodoPago   @map("metodo_pago")
-  monto          Decimal      @db.Decimal(10, 2)
+model Order {
+  idPedido      String      @id @default(uuid()) @map("id_pedido")
+  cliente       String
+  zona          Zone
+  fechaCreacion DateTime    @default(now()) @map("fecha_creacion")
+  fechaEntrega  DateTime?   @map("fecha_entrega")
+  estado        OrderStatus @default(pendiente)
+  repartidor    String?
+  metodoPago    PaymentMethod @map("metodo_pago")
+  monto         Decimal     @db.Decimal(10, 2)
 
   @@map("pedidos")
+}
+
+enum UserRole {
+  cliente
+  repartidor
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         UserRole
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("users")
 }
