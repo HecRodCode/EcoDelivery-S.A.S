@@ -1,98 +1,103 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# EcoDelivery S.A.S. — Backend & Data Pipeline
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend REST API + Airflow ETL pipeline for the EcoDelivery assessment.
+The Flutter app is a separate repo (`EcoDelivery-App`) and consumes this API.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
-
-```bash
-$ pnpm install
+```
+src/                 NestJS backend (DDD by feature: orders, auth)
+prisma/              Schema, migrations, seed script
+airflow/              Airflow ETL pipeline (Docker Compose)
+  dags/               DAG + dashboard generator
+  output/             Generated CSVs + HTML dashboard
 ```
 
-## Compile and run the project
+## 1. Backend API
+
+**Requirements**: Node 20+, pnpm, a reachable PostgreSQL instance.
 
 ```bash
-# development
-$ pnpm run start
-
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+pnpm install
+cp .env.example .env      # fill in real values, see table below
+npx prisma migrate deploy # or `migrate dev` in local dev
+pnpm db:seed               # optional: sample orders + 2 test users
+pnpm start:dev
 ```
 
-## Run tests
+API listens on `0.0.0.0:$PORT` (reachable from LAN / emulator / Docker via
+`host.docker.internal`). CORS is enabled for all origins, so any web or
+mobile client can call it directly. Swagger docs: **`/api/docs`**.
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | Postgres connection string. If going through PgBouncer, don't append `?schema=public` — it breaks the connection. |
+| `PORT` | Default `3000` |
+| `NODE_ENV` | `development` \| `production` \| `test` |
+| `JWT_SECRET` | ≥16 chars |
+| `JWT_EXPIRES_IN` | e.g. `1d` |
+
+### Auth & roles
+
+- `POST /auth/register` `{ email, password, role: "cliente"|"repartidor" }`
+- `POST /auth/login` `{ email, password }` → `{ accessToken }`
+- Everything else needs `Authorization: Bearer <token>`.
+- `POST /pedidos` needs role `cliente`; `PATCH /pedidos/:id/estado` needs
+  role `repartidor`; both roles can read.
+
+### Orders endpoints
+
+`POST /pedidos` · `GET /pedidos` (`?estado=&zona=`) · `GET /pedidos/:id` ·
+`PATCH /pedidos/:id/estado`. State machine: `pendiente → en_camino →
+entregado`, `cancelado` reachable from `pendiente`/`en_camino`; `entregado`
+and `cancelado` are terminal. `fecha_entrega` is set automatically on
+delivery.
+
+JSON uses snake_case fields (`id_pedido`, `fecha_creacion`, `metodo_pago`, …)
+and lowercase enum values, matching the Flutter app's contract.
+
+Seed users: `cliente@ecodelivery.com` / `repartidor@ecodelivery.com`,
+password `password123`.
+
+## 2. Airflow pipeline
+
+**Requirements**: Docker, backend already running.
 
 ```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+cd airflow
+cp .env.example .env   # set ECODELIVERY_API_EMAIL/PASSWORD
+docker compose build
+docker compose up -d
 ```
 
-## Deployment
+UI at **`http://localhost:8081`** (mapped off the default `8080`, which was
+taken by another local Airflow instance — change it back in
+`docker-compose.yaml` if `8080` is free for you).
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Trigger the DAG (`etl_pedidos_diario`) from the UI, or run it once without
+waiting for the scheduler:
 
 ```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+docker compose exec airflow-scheduler airflow dags test etl_pedidos_diario "$(date +%F)"
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+It logs into the API, pulls `GET /pedidos`, computes delivery-time/status/
+revenue metrics with pandas, writes 3 CSVs and regenerates
+`dashboard_ecodelivery.html` — a self-contained dashboard (KPIs, charts,
+status filter) — all in `airflow/output/`, refreshed on every run.
 
-## Resources
+## Power BI
 
-Check out a few resources that may come in handy when working with NestJS:
+No Linux build for Desktop and the web version is too limited without a
+tenant, so `dashboard_ecodelivery.html` (built from the same CSVs) is the
+substitute deliverable for that module.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## Assumptions & known gaps
 
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- Roles (`cliente` creates orders, `repartidor` updates status) aren't in
+  the brief — added because the Flutter app models both user types.
+- No `dataset_pedidos_semilla.csv` was provided; `prisma/seed.ts` generates
+  equivalent sample data instead.
+- Airflow doesn't write back to Postgres (dropped — unreliable with this
+  provider version, CSVs/dashboard already cover the requirement).
+- The dashboard doesn't live-refresh an open browser tab; reload it after a
+  new DAG run.
+- No automated tests for `orders`/`auth` beyond manual end-to-end checks.
